@@ -18,5 +18,5 @@ COPY ./ /app/
 # Expose port 5173 to access the server
 EXPOSE 5173
 
-# Command to run the application
-CMD ["yarn", "dev", "--host", "0.0.0.0"]
+# Command to run the application (use yarn run to ensure PATH is correct)
+CMD ["yarn", "run", "dev", "--host", "0.0.0.0"]
