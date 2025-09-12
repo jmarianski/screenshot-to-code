@@ -60,6 +60,8 @@ interface Props {
 
 function ImageUpload({ setReferenceImages }: Props) {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
+  const [dataUrls, setDataUrls] = useState<string[]>([]);
+  const [inputMode, setInputMode] = useState<'image' | 'video'>('image');
   // TODO: Switch to Zustand
   const [screenRecorderState, setScreenRecorderState] =
     useState<ScreenRecorderState>(ScreenRecorderState.INITIAL);
@@ -79,7 +81,6 @@ function ImageUpload({ setReferenceImages }: Props) {
         'video/webm': ['.webm'],
       },
       onDrop: (acceptedFiles) => {
-        // Set up the preview thumbnail images
         setFiles(
           acceptedFiles.map((file: File) =>
             Object.assign(file, {
@@ -87,14 +88,12 @@ function ImageUpload({ setReferenceImages }: Props) {
             }),
           ) as FileWithPreview[],
         );
-
-        // Convert images to data URLs and set the prompt images state
         Promise.all(acceptedFiles.map((file) => fileToDataURL(file)))
-          .then((dataUrls) => {
-            if (dataUrls.length > 0) {
-              setReferenceImages(
-                dataUrls.map((dataUrl) => dataUrl as string),
-                (dataUrls[0] as string).startsWith('data:video')
+          .then((urls) => {
+            setDataUrls(urls as string[]);
+            if (urls.length > 0) {
+              setInputMode(
+                (urls[0] as string).startsWith('data:video')
                   ? 'video'
                   : 'image',
               );
@@ -133,11 +132,9 @@ function ImageUpload({ setReferenceImages }: Props) {
           ) as FileWithPreview[],
         );
         Promise.all(imageFiles.map((file) => fileToDataURL(file)))
-          .then((dataUrls) => {
-            setReferenceImages(
-              dataUrls.map((dataUrl) => dataUrl as string),
-              'image',
-            );
+          .then((urls) => {
+            setDataUrls(urls as string[]);
+            setInputMode('image');
           })
           .catch((error) => {
             toast.error('Error reading pasted image: ' + error);
@@ -154,7 +151,7 @@ function ImageUpload({ setReferenceImages }: Props) {
         'paste',
         handlePaste as (event: ClipboardEvent) => void,
       );
-  }, [setReferenceImages, screenRecorderState]);
+  }, [screenRecorderState]);
 
   useEffect(() => {
     return () => files.forEach((file) => URL.revokeObjectURL(file.preview));
@@ -185,6 +182,31 @@ function ImageUpload({ setReferenceImages }: Props) {
           </p>
         </div>
       )}
+      <div className='my-4 flex flex-col items-center'>
+        {files.length > 0 && (
+          <div className='flex gap-4 mb-2'>
+            {files.map((file, idx) => (
+              <img
+                key={idx}
+                src={file.preview}
+                alt={`preview-${idx}`}
+                className='max-h-40 rounded shadow border'
+              />
+            ))}
+          </div>
+        )}
+        <button
+          className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition'
+          onClick={() => {
+            if (dataUrls.length > 0) {
+              setReferenceImages(dataUrls, inputMode);
+            }
+          }}
+          disabled={dataUrls.length === 0}
+        >
+          Submit
+        </button>
+      </div>
       {screenRecorderState === ScreenRecorderState.INITIAL && (
         <div className='text-center text-sm text-slate-800 mt-4'>
           Upload a screen recording (.mp4, .mov) or record your screen to clone
