@@ -125,17 +125,42 @@ function ImageUpload({ setReferenceImages }: Props) {
         }
       }
       if (imageFiles.length > 0) {
-        setFiles(
-          imageFiles.map((file: File) =>
-            Object.assign(file, {
-              preview: URL.createObjectURL(file),
-            }),
-          ) as FileWithPreview[],
-        );
         Promise.all(imageFiles.map((file) => fileToDataURL(file)))
           .then((urls) => {
-            setDataUrls(urls as string[]);
+            // Add to existing files using functional update to avoid closure issues
+            setUploadedFiles(prevFiles => {
+              // Create UploadedFile objects for pasted images using current state
+              const newUploadedFiles: UploadedFile[] = imageFiles.map((file, index) => ({
+                id: `paste-${Date.now()}-${index}`,
+                dataUrl: urls[index] as string,
+                name: file.name || `Pasted Image ${index + 1}`,
+                description: '',
+                type: (index === 0 && prevFiles.length === 0 ? 'screenshot' : 'asset') as 'screenshot' | 'asset',
+                file,
+                preview: URL.createObjectURL(file),
+              }));
+
+              const allFiles = [...prevFiles, ...newUploadedFiles];
+              
+              // Update legacy arrays for backward compatibility
+              const newDataUrls = allFiles.map(f => f.dataUrl);
+              setDataUrls(newDataUrls);
+              const newLegacyFiles = allFiles.map(f => f.file as FileWithPreview);
+              setFiles(newLegacyFiles);
+              
+              // Set main screenshot if none selected
+              setMainScreenshotId(prevMainId => {
+                if (!prevMainId && newUploadedFiles.length > 0) {
+                  return newUploadedFiles[0].id;
+                }
+                return prevMainId;
+              });
+              
+              return allFiles;
+            });
+
             setInputMode('image');
+            toast.success(`Pasted ${imageFiles.length} image${imageFiles.length > 1 ? 's' : ''} from clipboard`);
           })
           .catch((error) => {
             toast.error('Error reading pasted image: ' + error);
