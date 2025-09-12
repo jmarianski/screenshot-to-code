@@ -26,6 +26,7 @@ async def create_prompt(
     prompt: PromptContent,
     history: list[dict[str, Any]],
     is_imported_from_code: bool,
+    uploaded_files: list = None,
 ) -> tuple[list[ChatCompletionMessageParam], dict[str, str]]:
 
     image_cache: dict[str, str] = {}
@@ -41,14 +42,22 @@ async def create_prompt(
     else:
         # Assemble the prompt for non-imported code
         if input_mode == "image":
-            image_url = prompt["images"][0]
-            prompt_messages = assemble_prompt(image_url, stack)
+            # Check if we have uploaded files with multiple images
+            if uploaded_files and len(uploaded_files) > 0:
+                prompt_messages = assemble_multi_image_prompt(uploaded_files, stack)
+            else:
+                # Single image fallback
+                image_url = prompt["images"][0]
+                prompt_messages = assemble_prompt(image_url, stack)
         elif input_mode == "text":
             prompt_messages = assemble_text_prompt(prompt["text"], stack)
         else:
             # Default to image mode for backward compatibility
-            image_url = prompt["images"][0]
-            prompt_messages = assemble_prompt(image_url, stack)
+            if uploaded_files and len(uploaded_files) > 0:
+                prompt_messages = assemble_multi_image_prompt(uploaded_files, stack)
+            else:
+                image_url = prompt["images"][0]
+                prompt_messages = assemble_prompt(image_url, stack)
 
         if generation_type == "update":
             # Transform the history tree into message format
@@ -130,6 +139,87 @@ def assemble_imported_code_prompt(
             "content": system_content + "\n " + user_content,
         }
     ]
+
+
+def assemble_multi_image_prompt(
+    uploaded_files: list,
+    stack: Stack,
+) -> list[ChatCompletionMessageParam]:
+    """
+    Create prompt for multi-image support with screenshot + assets
+    """
+    from .screenshot_system_prompts import MULTI_IMAGE_SYSTEM_PROMPTS
+    
+    # Find screenshot and assets
+    screenshot = next((f for f in uploaded_files if f.type == "screenshot"), None)
+    assets = [f for f in uploaded_files if f.type == "asset"]
+    
+    # Get multi-image system prompt
+    system_content = MULTI_IMAGE_SYSTEM_PROMPTS.get(stack, SYSTEM_PROMPTS[stack])
+    
+    # Create user content with all images
+    user_content: list[ChatCompletionContentPartParam] = []
+    
+    # Add main screenshot first
+    if screenshot:
+        user_content.append({
+            "type": "image_url",
+            "image_url": {"url": screenshot.data_url, "detail": "high"},
+        })
+    
+    # Add asset images
+    for asset in assets:
+        user_content.append({
+            "type": "image_url",
+            "image_url": {"url": asset.data_url, "detail": "low"},
+        })
+    
+    # Create text instruction
+    instruction = create_multi_image_instruction(screenshot, assets)
+    user_content.append({
+        "type": "text",
+        "text": instruction,
+    })
+    
+    return [
+        {
+            "role": "system",
+            "content": system_content,
+        },
+        {
+            "role": "user",
+            "content": user_content,
+        },
+    ]
+
+
+def create_multi_image_instruction(screenshot, assets) -> str:
+    """
+    Create instruction text for multi-image prompts with asset tokens
+    """
+    instruction = "Generate code for a web page that looks exactly like the MAIN SCREENSHOT.\n\n"
+    
+    if screenshot:
+        instruction += f"MAIN SCREENSHOT: This is the primary design to replicate exactly.\n\n"
+    
+    if assets:
+        instruction += "ADDITIONAL ASSET FILES PROVIDED:\n"
+        for i, asset in enumerate(assets, 1):
+            description = asset.description or f"Asset file: {asset.filename}"
+            token = f"ASSET_IMAGE_{i}"
+            instruction += f"{i}. {description}\n"
+            instruction += f"   Token: {token}\n\n"
+        
+        instruction += "IMPORTANT INSTRUCTIONS FOR USING ASSET FILES:\n"
+        instruction += "- When you need to reference an asset image, use the corresponding token in the src attribute\n"
+        instruction += "- DO NOT use filenames, descriptions, or data URLs in src attributes\n"
+        instruction += "- Use the exact tokens listed above (e.g., ASSET_IMAGE_1, ASSET_IMAGE_2)\n"
+        instruction += "- Example: <img src=\"ASSET_IMAGE_1\" alt=\"Logo\" />\n"
+        instruction += "- For any other images needed beyond these assets, use placeholder images from https://placehold.co\n\n"
+    
+    instruction += "Make sure to replicate the main screenshot layout exactly while incorporating the provided assets appropriately."
+    
+    return instruction
 
 
 def assemble_prompt(

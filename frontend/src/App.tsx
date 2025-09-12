@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { generateCode } from "./generateCode";
 import SettingsDialog from "./components/settings/SettingsDialog";
 import DarkModeToggle from "./components/DarkModeToggle";
-import { AppState, CodeGenerationParams, EditorTheme, Settings } from "./types";
+import { AppState, CodeGenerationParams, EditorTheme, Settings, UploadedFile } from "./types";
 import { IS_RUNNING_ON_CLOUD } from "./config";
 import { PicoBadge } from "./components/messages/PicoBadge";
 import { OnboardingNote } from "./components/messages/OnboardingNote";
@@ -249,7 +249,7 @@ function App() {
 
   // Initial version creation
   function doCreate(
-    referenceImages: string[], 
+    referenceImages: string[] | UploadedFile[], 
     inputMode: "image" | "video",
     customModels?: string[],
     customVariantCount?: number
@@ -257,19 +257,42 @@ function App() {
     // Reset any existing state
     reset();
 
-    // Set the input states
-    setReferenceImages(referenceImages);
-    setInputMode(inputMode);
+    // Handle both old string[] format and new UploadedFile[] format
+    if (typeof referenceImages[0] === 'string') {
+      // Legacy format - array of data URLs
+      const legacyImages = referenceImages as string[];
+      setReferenceImages(legacyImages);
+      setInputMode(inputMode);
 
-    // Kick off the code generation
-    if (referenceImages.length > 0) {
-      doGenerateCode({
-        generationType: "create",
-        inputMode,
-        prompt: { text: "", images: [referenceImages[0]] },
-        customModels,
-        customVariantCount,
-      });
+      if (legacyImages.length > 0) {
+        doGenerateCode({
+          generationType: "create",
+          inputMode,
+          prompt: { text: "", images: [legacyImages[0]] },
+          customModels,
+          customVariantCount,
+        });
+      }
+    } else {
+      // New format - UploadedFile[]
+      const uploadedFiles = referenceImages as UploadedFile[];
+      const legacyImages = uploadedFiles.map(f => f.dataUrl);
+      setReferenceImages(legacyImages);
+      setInputMode(inputMode);
+
+      if (uploadedFiles.length > 0) {
+        doGenerateCode({
+          generationType: "create",
+          inputMode,
+          prompt: { 
+            text: "", 
+            images: [uploadedFiles.find(f => f.type === 'screenshot')?.dataUrl || uploadedFiles[0].dataUrl],
+            uploadedFiles: uploadedFiles
+          },
+          customModels,
+          customVariantCount,
+        });
+      }
     }
   }
 

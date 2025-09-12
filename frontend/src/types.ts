@@ -31,9 +31,20 @@ export enum ScreenRecorderState {
   FINISHED = "finished",
 }
 
+export interface UploadedFile {
+  id: string;
+  dataUrl: string;
+  name: string;
+  type: 'screenshot' | 'asset';
+  description?: string;
+  file: File;
+  preview: string;
+}
+
 export interface PromptContent {
   text: string;
-  images: string[]; // Array of data URLs
+  images: string[]; // Array of data URLs - will be deprecated in favor of uploadedFiles
+  uploadedFiles?: UploadedFile[]; // New multi-file support
 }
 
 export interface CodeGenerationParams {

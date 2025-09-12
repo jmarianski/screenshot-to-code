@@ -2,11 +2,16 @@ import React from "react";
 import ImageUpload from "../ImageUpload";
 import { UrlInputSection } from "../UrlInputSection";
 import ImportCodeSection from "../ImportCodeSection";
-import { Settings } from "../../types";
+import { Settings, UploadedFile } from "../../types";
 import { Stack } from "../../lib/stacks";
 
 interface Props {
-  doCreate: (images: string[], inputMode: "image" | "video") => void;
+  doCreate: (
+    referenceImages: string[] | UploadedFile[], 
+    inputMode: "image" | "video",
+    customModels?: string[],
+    customVariantCount?: number
+  ) => void;
   importFromCode: (code: string, stack: Stack) => void;
   settings: Settings;
 }

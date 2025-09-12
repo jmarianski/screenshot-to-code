@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { toast } from 'react-hot-toast';
 import { URLS } from '../urls';
 import ScreenRecorder from './recording/ScreenRecorder';
-import { ScreenRecorderState } from '../types';
+import { ScreenRecorderState, UploadedFile } from '../types';
 import ModelSelection from './ModelSelection';
 
 // Modern Tailwind-based styling - removing inline styles for better maintainability
@@ -24,7 +24,7 @@ type FileWithPreview = {
 
 interface Props {
   setReferenceImages: (
-    referenceImages: string[],
+    referenceImages: string[] | UploadedFile[],
     inputMode: 'image' | 'video',
     customModels?: string[],
     customVariantCount?: number,
@@ -33,6 +33,8 @@ interface Props {
 
 function ImageUpload({ setReferenceImages }: Props) {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [mainScreenshotId, setMainScreenshotId] = useState<string | null>(null);
   const [dataUrls, setDataUrls] = useState<string[]>([]);
   const [inputMode, setInputMode] = useState<'image' | 'video'>('image');
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
@@ -44,7 +46,7 @@ function ImageUpload({ setReferenceImages }: Props) {
 
   const { getRootProps, getInputProps, isFocused, isDragAccept, isDragReject } =
     useDropzone({
-      maxFiles: 1,
+      maxFiles: 10,
       maxSize: 1024 * 1024 * 20, // 20 MB
       accept: {
         // Image formats
@@ -57,6 +59,7 @@ function ImageUpload({ setReferenceImages }: Props) {
         'video/webm': ['.webm'],
       },
       onDrop: (acceptedFiles) => {
+        // Keep old format for backward compatibility
         setFiles(
           acceptedFiles.map((file: File) =>
             Object.assign(file, {
@@ -64,9 +67,31 @@ function ImageUpload({ setReferenceImages }: Props) {
             }),
           ) as FileWithPreview[],
         );
+
+        // Create new UploadedFile format
         Promise.all(acceptedFiles.map((file) => fileToDataURL(file)))
           .then((urls) => {
             setDataUrls(urls as string[]);
+            
+            // Create UploadedFile objects
+            const newUploadedFiles: UploadedFile[] = acceptedFiles.map((file, index) => ({
+              id: `file-${Date.now()}-${index}`,
+              dataUrl: urls[index] as string,
+              name: file.name,
+              type: index === 0 && uploadedFiles.length === 0 ? 'screenshot' : 'asset', // First file is screenshot by default
+              file,
+              preview: URL.createObjectURL(file),
+            }));
+
+            // Add to existing files
+            const allFiles = [...uploadedFiles, ...newUploadedFiles];
+            setUploadedFiles(allFiles);
+
+            // Set main screenshot if none selected
+            if (!mainScreenshotId && newUploadedFiles.length > 0) {
+              setMainScreenshotId(newUploadedFiles[0].id);
+            }
+
             if (urls.length > 0) {
               setInputMode(
                 (urls[0] as string).startsWith('data:video')
@@ -130,8 +155,58 @@ function ImageUpload({ setReferenceImages }: Props) {
   }, [screenRecorderState]);
 
   useEffect(() => {
-    return () => files.forEach((file) => URL.revokeObjectURL(file.preview));
-  }, [files]); // Added files as a dependency
+    return () => {
+      files.forEach((file) => URL.revokeObjectURL(file.preview));
+      uploadedFiles.forEach((file) => URL.revokeObjectURL(file.preview));
+    };
+  }, [files, uploadedFiles]);
+
+  // Helper functions for file management
+  const removeFile = (fileId: string) => {
+    const fileToRemove = uploadedFiles.find(f => f.id === fileId);
+    if (fileToRemove) {
+      URL.revokeObjectURL(fileToRemove.preview);
+      const newFiles = uploadedFiles.filter(f => f.id !== fileId);
+      setUploadedFiles(newFiles);
+      
+      // If removed file was the main screenshot, select another one
+      if (mainScreenshotId === fileId) {
+        const screenshotFile = newFiles.find(f => f.type === 'screenshot');
+        setMainScreenshotId(screenshotFile?.id || (newFiles.length > 0 ? newFiles[0].id : null));
+      }
+      
+      // Update legacy arrays
+      const newDataUrls = newFiles.map(f => f.dataUrl);
+      setDataUrls(newDataUrls);
+      const newLegacyFiles = newFiles.map(f => f.file as FileWithPreview);
+      setFiles(newLegacyFiles);
+    }
+  };
+
+  const setFileType = (fileId: string, type: 'screenshot' | 'asset') => {
+    const newFiles = uploadedFiles.map(file => 
+      file.id === fileId ? { ...file, type } : file
+    );
+    setUploadedFiles(newFiles);
+    
+    if (type === 'screenshot') {
+      setMainScreenshotId(fileId);
+      // Ensure only one screenshot
+      const otherFiles = newFiles.map(file => 
+        file.id !== fileId && file.type === 'screenshot' 
+          ? { ...file, type: 'asset' as const }
+          : file
+      );
+      setUploadedFiles(otherFiles);
+    }
+  };
+
+  const setFileDescription = (fileId: string, description: string) => {
+    const newFiles = uploadedFiles.map(file => 
+      file.id === fileId ? { ...file, description } : file
+    );
+    setUploadedFiles(newFiles);
+  };
 
   // Dynamic Tailwind classes based on dropzone state
   const dropzoneClasses = `
@@ -174,19 +249,101 @@ function ImageUpload({ setReferenceImages }: Props) {
           </div>
         </div>
       )}
-      {/* Preview Section */}
-      {files.length > 0 && (
+      {/* File Management Section */}
+      {uploadedFiles.length > 0 && (
         <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Preview</h3>
-          <div className="flex gap-4 justify-center">
-            {files.map((file, idx) => (
-              <div key={idx} className="relative group">
-                <img
-                  src={file.preview}
-                  alt={`preview-${idx}`}
-                  className="max-h-48 rounded-xl shadow-lg border border-slate-200 dark:border-slate-600 group-hover:shadow-xl transition-shadow"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors" />
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">
+            Uploaded Files ({uploadedFiles.length})
+          </h3>
+          
+          {uploadedFiles.length > 1 && (
+            <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-200 font-medium">
+                💡 Select which image is the main screenshot to recreate, others will be used as assets
+              </p>
+            </div>
+          )}
+
+          <div className="grid gap-4">
+            {uploadedFiles.map((file) => (
+              <div
+                key={file.id}
+                className={`flex gap-4 p-4 rounded-lg border-2 transition-colors ${
+                  file.type === 'screenshot'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    : 'border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50'
+                }`}
+              >
+                {/* Image Preview */}
+                <div className="flex-shrink-0">
+                  <img
+                    src={file.preview}
+                    alt={file.name}
+                    className="w-20 h-20 object-cover rounded-lg border border-slate-200 dark:border-slate-600"
+                  />
+                </div>
+
+                {/* File Info and Controls */}
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200 truncate">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {(file.file.size / 1024 / 1024).toFixed(1)} MB
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => removeFile(file.id)}
+                      className="p-1 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                      title="Remove file"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* File Type Selection */}
+                  <div className="flex gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="screenshot"
+                        checked={file.type === 'screenshot'}
+                        onChange={() => setFileType(file.id, 'screenshot')}
+                        className="w-4 h-4 text-blue-600 dark:text-blue-400"
+                      />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Main Screenshot
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={`type-${file.id}`}
+                        checked={file.type === 'asset'}
+                        onChange={() => setFileType(file.id, 'asset')}
+                        className="w-4 h-4 text-green-600 dark:text-green-400"
+                      />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Asset File
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Description Input for Assets */}
+                  {file.type === 'asset' && (
+                    <input
+                      type="text"
+                      placeholder="Describe this asset (e.g., 'Company logo', 'Profile photo')..."
+                      value={file.description || ''}
+                      onChange={(e) => setFileDescription(file.id, e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border border-slate-200 dark:border-slate-600 rounded bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent"
+                    />
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -219,7 +376,33 @@ function ImageUpload({ setReferenceImages }: Props) {
         <button
           className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
           onClick={() => {
-            if (dataUrls.length > 0) {
+            // Use new format if we have uploadedFiles, otherwise fallback to legacy
+            if (uploadedFiles.length > 0) {
+              // Ensure we have at least one screenshot
+              const hasScreenshot = uploadedFiles.some(f => f.type === 'screenshot');
+              if (!hasScreenshot && uploadedFiles.length > 0) {
+                // Auto-designate first file as screenshot if none selected
+                const firstFile = uploadedFiles[0];
+                setFileType(firstFile.id, 'screenshot');
+                const updatedFiles = uploadedFiles.map((f, i) => 
+                  i === 0 ? { ...f, type: 'screenshot' as const } : f
+                );
+                setReferenceImages(
+                  updatedFiles,
+                  inputMode,
+                  selectedModels.length > 0 ? selectedModels : undefined,
+                  variantCount > 1 ? variantCount : undefined,
+                );
+              } else {
+                setReferenceImages(
+                  uploadedFiles,
+                  inputMode,
+                  selectedModels.length > 0 ? selectedModels : undefined,
+                  variantCount > 1 ? variantCount : undefined,
+                );
+              }
+            } else if (dataUrls.length > 0) {
+              // Fallback to legacy format
               setReferenceImages(
                 dataUrls,
                 inputMode,
@@ -228,7 +411,7 @@ function ImageUpload({ setReferenceImages }: Props) {
               );
             }
           }}
-          disabled={dataUrls.length === 0}
+          disabled={uploadedFiles.length === 0 && dataUrls.length === 0}
         >
           <div className="flex items-center justify-center gap-2">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

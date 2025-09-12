@@ -95,3 +95,23 @@ def truncate_data_strings(data: List[ChatCompletionMessageParam]):  # type: igno
         cloned_data = [truncate_data_strings(item) for item in cloned_data]  # type: ignore
 
     return cloned_data  # type: ignore
+
+
+def replace_asset_tokens(generated_code: str, uploaded_files: List) -> str:
+    """
+    Replace asset tokens (ASSET_IMAGE_1, ASSET_IMAGE_2, etc.) with actual data URLs
+    """
+    if not uploaded_files:
+        return generated_code
+    
+    # Get only asset files (not screenshots)
+    assets = [f for f in uploaded_files if f.type == "asset"]
+    
+    # Replace each token with corresponding data URL
+    processed_code = generated_code
+    for i, asset in enumerate(assets, 1):
+        token = f"ASSET_IMAGE_{i}"
+        data_url = asset.data_url
+        processed_code = processed_code.replace(token, data_url)
+    
+    return processed_code

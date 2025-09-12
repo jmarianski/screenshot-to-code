@@ -206,6 +206,14 @@ class WebSocketCommunicator:
 
 
 @dataclass
+class ImageData:
+    data_url: str
+    type: Literal["screenshot", "asset"]
+    description: str
+    filename: str
+
+
+@dataclass
 class ExtractedParams:
     stack: Stack
     input_mode: InputMode
@@ -219,6 +227,7 @@ class ExtractedParams:
     is_imported_from_code: bool
     custom_models: List[str] | None = None
     custom_variant_count: int | None = None
+    uploaded_files: List[ImageData] | None = None  # New multi-image support
 
 
 class ParameterExtractionStage:
@@ -296,6 +305,20 @@ class ParameterExtractionStage:
         else:
             custom_variant_count = None
 
+        # Extract uploaded files for multi-image support
+        uploaded_files = None
+        if "uploadedFiles" in prompt and isinstance(prompt["uploadedFiles"], list):
+            uploaded_files = []
+            for file_data in prompt["uploadedFiles"]:
+                if isinstance(file_data, dict):
+                    image_data = ImageData(
+                        data_url=file_data.get("dataUrl", ""),
+                        type=file_data.get("type", "asset"),
+                        description=file_data.get("description", ""),
+                        filename=file_data.get("name", "")
+                    )
+                    uploaded_files.append(image_data)
+
         return ExtractedParams(
             stack=validated_stack,
             input_mode=validated_input_mode,
@@ -309,6 +332,7 @@ class ParameterExtractionStage:
             is_imported_from_code=is_imported_from_code,
             custom_models=custom_models,
             custom_variant_count=custom_variant_count,
+            uploaded_files=uploaded_files,
         )
 
     def _get_from_settings_dialog_or_env(
@@ -460,6 +484,7 @@ class PromptCreationStage:
                 prompt=extracted_params.prompt,
                 history=extracted_params.history,
                 is_imported_from_code=extracted_params.is_imported_from_code,
+                uploaded_files=extracted_params.uploaded_files,
             )
 
             print_prompt_summary(prompt_messages, truncate=False)
@@ -473,13 +498,15 @@ class PromptCreationStage:
 
 
 class MockResponseStage:
-    """Handles mock AI responses for testing"""
+    """Handles mock response generation for testing"""
 
     def __init__(
         self,
         send_message: Callable[[MessageType, str, int], Coroutine[Any, Any, None]],
+        uploaded_files: List | None = None,
     ):
         self.send_message = send_message
+        self.uploaded_files = uploaded_files
 
     async def generate_mock_response(
         self,
@@ -495,8 +522,14 @@ class MockResponseStage:
         ]
         completions = [result["code"] for result in completion_results]
 
+        # Replace asset tokens with actual data URLs if using multi-image
+        processed_code = completions[0]
+        if self.uploaded_files:
+            from utils import replace_asset_tokens
+            processed_code = replace_asset_tokens(processed_code, self.uploaded_files)
+
         # Send the complete variant back to the client
-        await self.send_message("setCode", completions[0], 0)
+        await self.send_message("setCode", processed_code, 0)
         await self.send_message("variantComplete", "Variant generation complete", 0)
 
         return completions
@@ -509,9 +542,11 @@ class VideoGenerationStage:
         self,
         send_message: Callable[[MessageType, str, int], Coroutine[Any, Any, None]],
         throw_error: Callable[[str], Coroutine[Any, Any, None]],
+        uploaded_files: List | None = None,
     ):
         self.send_message = send_message
         self.throw_error = throw_error
+        self.uploaded_files = uploaded_files
 
     async def generate_video_code(
         self,
@@ -542,11 +577,17 @@ class VideoGenerationStage:
         ]
         completions = [result["code"] for result in completion_results]
 
+        # Replace asset tokens with actual data URLs if using multi-image
+        processed_code = completions[0]
+        if self.uploaded_files:
+            from utils import replace_asset_tokens
+            processed_code = replace_asset_tokens(processed_code, self.uploaded_files)
+
         # Send the complete variant back to the client
-        await self.send_message("setCode", completions[0], 0)
+        await self.send_message("setCode", processed_code, 0)
         await self.send_message("variantComplete", "Variant generation complete", 0)
 
-        return completions
+        return [processed_code]
 
 
 class PostProcessingStage:
@@ -584,12 +625,14 @@ class ParallelGenerationStage:
         openai_base_url: str | None,
         anthropic_api_key: str | None,
         should_generate_images: bool,
+        uploaded_files: List | None = None,
     ):
         self.send_message = send_message
         self.openai_api_key = openai_api_key
         self.openai_base_url = openai_base_url
         self.anthropic_api_key = anthropic_api_key
         self.should_generate_images = should_generate_images
+        self.uploaded_files = uploaded_files
 
     async def process_variants(
         self,
@@ -784,9 +827,15 @@ class ParallelGenerationStage:
             variant_completions[index] = completion["code"]
 
             try:
+                # Replace asset tokens with actual data URLs if using multi-image
+                processed_code = completion["code"]
+                if hasattr(self, 'uploaded_files') and self.uploaded_files:
+                    from utils import replace_asset_tokens
+                    processed_code = replace_asset_tokens(processed_code, self.uploaded_files)
+
                 # Process images for this variant
                 processed_html = await self._perform_image_generation(
-                    completion["code"],
+                    processed_code,
                     image_cache,
                 )
 
@@ -902,7 +951,10 @@ class CodeGenerationMiddleware(Middleware):
     ) -> None:
         if SHOULD_MOCK_AI_RESPONSE:
             # Use mock response for testing
-            mock_stage = MockResponseStage(context.send_message)
+            mock_stage = MockResponseStage(
+                context.send_message,
+                uploaded_files=context.extracted_params.uploaded_files
+            )
             assert context.extracted_params is not None
             context.completions = await mock_stage.generate_mock_response(
                 context.extracted_params.input_mode
@@ -913,7 +965,9 @@ class CodeGenerationMiddleware(Middleware):
                 if context.extracted_params.input_mode == "video":
                     # Use video generation for video mode
                     video_stage = VideoGenerationStage(
-                        context.send_message, context.throw_error
+                        context.send_message,
+                        context.throw_error,
+                        uploaded_files=context.extracted_params.uploaded_files
                     )
                     context.completions = await video_stage.generate_video_code(
                         context.prompt_messages,
@@ -939,6 +993,7 @@ class CodeGenerationMiddleware(Middleware):
                         openai_base_url=context.extracted_params.openai_base_url,
                         anthropic_api_key=context.extracted_params.anthropic_api_key,
                         should_generate_images=context.extracted_params.should_generate_images,
+                        uploaded_files=context.extracted_params.uploaded_files,
                     )
 
                     context.variant_completions = (
