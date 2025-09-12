@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { generateCode } from "./generateCode";
 import SettingsDialog from "./components/settings/SettingsDialog";
+import DarkModeToggle from "./components/DarkModeToggle";
 import { AppState, CodeGenerationParams, EditorTheme, Settings } from "./types";
 import { IS_RUNNING_ON_CLOUD } from "./config";
 import { PicoBadge } from "./components/messages/PicoBadge";
@@ -381,7 +382,7 @@ function App() {
   }
 
   return (
-    <div className="mt-2 dark:bg-black dark:text-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-300">
       {IS_RUNNING_ON_CLOUD && <PicoBadge />}
       {IS_RUNNING_ON_CLOUD && (
         <TermsOfServiceDialog
@@ -389,43 +390,73 @@ function App() {
           onOpenChange={handleTermDialogOpenChange}
         />
       )}
-      <div className="lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-96 lg:flex-col">
-        <div className="flex grow flex-col gap-y-2 overflow-y-auto border-r border-gray-200 bg-white px-6 dark:bg-zinc-950 dark:text-white">
-          {/* Header with access to settings */}
-          <div className="flex items-center justify-between mt-10 mb-2">
-            <h1 className="text-2xl ">Screenshot to Code</h1>
-            <SettingsDialog settings={settings} setSettings={setSettings} />
+      
+      {/* Modern Sidebar */}
+      <div className="lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-[380px] lg:flex-col">
+        <div className="flex grow flex-col gap-y-4 overflow-y-auto bg-white/80 backdrop-blur-xl border-r border-slate-200/60 px-6 py-8 dark:bg-slate-900/80 dark:border-slate-700/60 shadow-xl">
+          {/* Enhanced Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">
+                  Screenshot to Code
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400">AI-Powered Code Generation</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <DarkModeToggle />
+              <SettingsDialog settings={settings} setSettings={setSettings} />
+            </div>
           </div>
 
-          {/* Generation settings like stack and model */}
-          <GenerationSettings settings={settings} setSettings={setSettings} />
+          {/* Generation Settings Card */}
+          <div className="bg-slate-50/50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200/60 dark:border-slate-700/60">
+            <GenerationSettings settings={settings} setSettings={setSettings} />
+          </div>
 
-          {/* Show auto updated message when older models are choosen */}
-          {showBetterModelMessage && <DeprecationMessage />}
-
-          {/* Show tip link until coding is complete */}
-          {/* {appState !== AppState.CODE_READY && <TipLink />} */}
-
-          {IS_RUNNING_ON_CLOUD && !settings.openAiApiKey && <OnboardingNote />}
-
-          {appState === AppState.INITIAL && (
-            <GenerateFromText doCreateFromText={doCreateFromText} />
+          {/* Notifications */}
+          {showBetterModelMessage && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl p-4">
+              <DeprecationMessage />
+            </div>
           )}
 
-          {/* Rest of the sidebar when we're not in the initial state */}
-          {(appState === AppState.CODING ||
-            appState === AppState.CODE_READY) && (
-            <Sidebar
-              showSelectAndEditFeature={showSelectAndEditFeature}
-              doUpdate={doUpdate}
-              regenerate={regenerate}
-              cancelCodeGeneration={cancelCodeGeneration}
-            />
+          {IS_RUNNING_ON_CLOUD && !settings.openAiApiKey && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-4">
+              <OnboardingNote />
+            </div>
           )}
+
+          {/* Dynamic Content */}
+          <div className="flex-1 space-y-4">
+            {appState === AppState.INITIAL && (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-700/30">
+                <GenerateFromText doCreateFromText={doCreateFromText} />
+              </div>
+            )}
+
+            {(appState === AppState.CODING || appState === AppState.CODE_READY) && (
+              <div className="space-y-4">
+                <Sidebar
+                  showSelectAndEditFeature={showSelectAndEditFeature}
+                  doUpdate={doUpdate}
+                  regenerate={regenerate}
+                  cancelCodeGeneration={cancelCodeGeneration}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      <main className="py-2 lg:pl-96">
+      {/* Main Content Area */}
+      <main className="lg:pl-[380px] min-h-screen">
         {appState === AppState.INITIAL && (
           <StartPane
             doCreate={doCreate}
@@ -435,7 +466,9 @@ function App() {
         )}
 
         {(appState === AppState.CODING || appState === AppState.CODE_READY) && (
-          <PreviewPane doUpdate={doUpdate} reset={reset} settings={settings} />
+          <div className="p-4">
+            <PreviewPane doUpdate={doUpdate} reset={reset} settings={settings} />
+          </div>
         )}
       </main>
     </div>

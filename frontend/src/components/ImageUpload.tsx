@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'react-hot-toast';
 import { URLS } from '../urls';
@@ -6,37 +6,7 @@ import ScreenRecorder from './recording/ScreenRecorder';
 import { ScreenRecorderState } from '../types';
 import ModelSelection from './ModelSelection';
 
-const baseStyle = {
-  flex: 1,
-  width: '80%',
-  margin: '0 auto',
-  minHeight: '400px',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '20px',
-  borderWidth: 2,
-  borderRadius: 2,
-  borderColor: '#eeeeee',
-  borderStyle: 'dashed',
-  backgroundColor: '#fafafa',
-  color: '#bdbdbd',
-  outline: 'none',
-  transition: 'border .24s ease-in-out',
-};
-
-const focusedStyle = {
-  borderColor: '#2196f3',
-};
-
-const acceptStyle = {
-  borderColor: '#00e676',
-};
-
-const rejectStyle = {
-  borderColor: '#ff1744',
-};
+// Modern Tailwind-based styling - removing inline styles for better maintainability
 
 // TODO: Move to a separate file
 function fileToDataURL(file: File) {
@@ -163,88 +133,131 @@ function ImageUpload({ setReferenceImages }: Props) {
     return () => files.forEach((file) => URL.revokeObjectURL(file.preview));
   }, [files]); // Added files as a dependency
 
-  const style = useMemo(
-    () => ({
-      ...baseStyle,
-      ...(isFocused ? focusedStyle : {}),
-      ...(isDragAccept ? acceptStyle : {}),
-      ...(isDragReject ? rejectStyle : {}),
-    }),
-    [isFocused, isDragAccept, isDragReject],
-  );
+  // Dynamic Tailwind classes based on dropzone state
+  const dropzoneClasses = `
+    flex flex-col items-center justify-center w-full min-h-[300px] p-8
+    border-2 border-dashed rounded-2xl transition-all duration-300 cursor-pointer
+    bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-700
+    hover:from-blue-50 hover:to-purple-50 dark:hover:from-slate-700 dark:hover:to-slate-600
+    ${isFocused 
+      ? 'border-blue-400 shadow-lg ring-4 ring-blue-100 dark:ring-blue-900' 
+      : isDragAccept
+        ? 'border-green-400 bg-green-50 dark:bg-green-900/20'
+        : isDragReject
+          ? 'border-red-400 bg-red-50 dark:bg-red-900/20'
+          : 'border-slate-300 dark:border-slate-600'
+    }
+  `.trim();
 
   return (
-    <section className='container'>
+    <div className="space-y-6">
       {screenRecorderState === ScreenRecorderState.INITIAL && (
-        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
-        <div {...getRootProps({ style: style as any })}>
-          <input {...getInputProps()} className='file-input' />
-          <p className='text-slate-700 text-lg'>
-            Drag & drop a screenshot here,
-            <br />
-            click to upload,
-            <br />
-            <b>or paste a screenshot from your clipboard</b>
-          </p>
+        <div {...getRootProps({ className: dropzoneClasses })}>
+          <input {...getInputProps()} className="hidden" />
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <p className="text-lg font-medium text-slate-700 dark:text-slate-200">
+                Drop your screenshot here
+              </p>
+              <p className="text-slate-500 dark:text-slate-400">
+                or <span className="text-blue-600 dark:text-blue-400 font-medium">click to browse</span> files
+              </p>
+              <p className="text-sm text-slate-400 dark:text-slate-500 font-medium">
+                ✨ You can also paste from clipboard (Ctrl+V)
+              </p>
+            </div>
+          </div>
         </div>
       )}
-      <div className='my-4 flex flex-col items-center'>
-        {files.length > 0 && (
-          <div className='flex gap-4 mb-2'>
+      {/* Preview Section */}
+      {files.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+          <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200 mb-4">Preview</h3>
+          <div className="flex gap-4 justify-center">
             {files.map((file, idx) => (
-              <img
-                key={idx}
-                src={file.preview}
-                alt={`preview-${idx}`}
-                className='max-h-40 rounded shadow border'
-              />
+              <div key={idx} className="relative group">
+                <img
+                  src={file.preview}
+                  alt={`preview-${idx}`}
+                  className="max-h-48 rounded-xl shadow-lg border border-slate-200 dark:border-slate-600 group-hover:shadow-xl transition-shadow"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-xl transition-colors" />
+              </div>
             ))}
           </div>
-        )}
-        <div className='space-y-4'>
-          <button
-            className='px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition text-sm'
-            onClick={() => setShowModelSelection(!showModelSelection)}
-          >
-            {showModelSelection ? 'Hide' : 'Show'} Advanced Options
-          </button>
+        </div>
+      )}
 
-          {showModelSelection && (
+      {/* Advanced Options */}
+      <div className="space-y-4">
+        <button
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors font-medium text-sm border border-slate-200 dark:border-slate-600"
+          onClick={() => setShowModelSelection(!showModelSelection)}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          {showModelSelection ? 'Hide' : 'Show'} Advanced Options
+        </button>
+
+        {showModelSelection && (
+          <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
             <ModelSelection
               selectedModels={selectedModels}
               onModelsChange={setSelectedModels}
               onVariantCountChange={setVariantCount}
             />
-          )}
+          </div>
+        )}
 
-          <button
-            className='px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-medium'
-            onClick={() => {
-              if (dataUrls.length > 0) {
-                setReferenceImages(
-                  dataUrls,
-                  inputMode,
-                  selectedModels.length > 0 ? selectedModels : undefined,
-                  variantCount > 1 ? variantCount : undefined,
-                );
-              }
-            }}
-            disabled={dataUrls.length === 0}
-          >
+        <button
+          className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg"
+          onClick={() => {
+            if (dataUrls.length > 0) {
+              setReferenceImages(
+                dataUrls,
+                inputMode,
+                selectedModels.length > 0 ? selectedModels : undefined,
+                variantCount > 1 ? variantCount : undefined,
+              );
+            }
+          }}
+          disabled={dataUrls.length === 0}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
             Generate Code
-          </button>
-        </div>
+          </div>
+        </button>
       </div>
       {screenRecorderState === ScreenRecorderState.INITIAL && (
-        <div className='text-center text-sm text-slate-800 mt-4'>
-          Upload a screen recording (.mp4, .mov) or record your screen to clone
-          a whole app (experimental).{' '}
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl p-4 text-center">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span className="font-medium text-amber-800 dark:text-amber-200">Video Recording</span>
+          </div>
+          <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+            Upload a screen recording (.mp4, .mov) or record your screen to clone a whole app
+          </p>
           <a
-            className='underline'
+            className="inline-flex items-center gap-1 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 underline font-medium"
             href={URLS['intro-to-video']}
             target='_blank'
           >
-            Learn more.
+            Learn more about video features
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
           </a>
         </div>
       )}
@@ -253,7 +266,7 @@ function ImageUpload({ setReferenceImages }: Props) {
         setScreenRecorderState={setScreenRecorderState}
         generateCode={setReferenceImages}
       />
-    </section>
+    </div>
   );
 }
 
