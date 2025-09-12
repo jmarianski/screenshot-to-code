@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { URLS } from '../urls';
 import ScreenRecorder from './recording/ScreenRecorder';
 import { ScreenRecorderState } from '../types';
+import ModelSelection from './ModelSelection';
 
 const baseStyle = {
   flex: 1,
@@ -55,6 +56,8 @@ interface Props {
   setReferenceImages: (
     referenceImages: string[],
     inputMode: 'image' | 'video',
+    customModels?: string[],
+    customVariantCount?: number,
   ) => void;
 }
 
@@ -62,6 +65,9 @@ function ImageUpload({ setReferenceImages }: Props) {
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [dataUrls, setDataUrls] = useState<string[]>([]);
   const [inputMode, setInputMode] = useState<'image' | 'video'>('image');
+  const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [variantCount, setVariantCount] = useState<number>(1);
+  const [showModelSelection, setShowModelSelection] = useState<boolean>(false);
   // TODO: Switch to Zustand
   const [screenRecorderState, setScreenRecorderState] =
     useState<ScreenRecorderState>(ScreenRecorderState.INITIAL);
@@ -195,17 +201,39 @@ function ImageUpload({ setReferenceImages }: Props) {
             ))}
           </div>
         )}
-        <button
-          className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition'
-          onClick={() => {
-            if (dataUrls.length > 0) {
-              setReferenceImages(dataUrls, inputMode);
-            }
-          }}
-          disabled={dataUrls.length === 0}
-        >
-          Submit
-        </button>
+        <div className='space-y-4'>
+          <button
+            className='px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition text-sm'
+            onClick={() => setShowModelSelection(!showModelSelection)}
+          >
+            {showModelSelection ? 'Hide' : 'Show'} Advanced Options
+          </button>
+
+          {showModelSelection && (
+            <ModelSelection
+              selectedModels={selectedModels}
+              onModelsChange={setSelectedModels}
+              onVariantCountChange={setVariantCount}
+            />
+          )}
+
+          <button
+            className='px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-medium'
+            onClick={() => {
+              if (dataUrls.length > 0) {
+                setReferenceImages(
+                  dataUrls,
+                  inputMode,
+                  selectedModels.length > 0 ? selectedModels : undefined,
+                  variantCount > 1 ? variantCount : undefined,
+                );
+              }
+            }}
+            disabled={dataUrls.length === 0}
+          >
+            Generate Code
+          </button>
+        </div>
       </div>
       {screenRecorderState === ScreenRecorderState.INITIAL && (
         <div className='text-center text-sm text-slate-800 mt-4'>

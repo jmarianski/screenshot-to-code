@@ -217,6 +217,8 @@ class ExtractedParams:
     prompt: PromptContent
     history: List[Dict[str, Any]]
     is_imported_from_code: bool
+    custom_models: List[str] | None = None
+    custom_variant_count: int | None = None
 
 
 class ParameterExtractionStage:
@@ -281,6 +283,19 @@ class ParameterExtractionStage:
         # Extract imported code flag
         is_imported_from_code = params.get("isImportedFromCode", False)
 
+        # Extract custom model selection and variant count
+        custom_models = params.get("customModels")
+        if custom_models and isinstance(custom_models, list):
+            custom_models = [model for model in custom_models if isinstance(model, str) and model.strip()]
+        else:
+            custom_models = None
+        
+        custom_variant_count = params.get("customVariantCount")
+        if custom_variant_count and isinstance(custom_variant_count, int):
+            custom_variant_count = custom_variant_count
+        else:
+            custom_variant_count = None
+
         return ExtractedParams(
             stack=validated_stack,
             input_mode=validated_input_mode,
@@ -292,6 +307,8 @@ class ParameterExtractionStage:
             prompt=prompt,
             history=history,
             is_imported_from_code=is_imported_from_code,
+            custom_models=custom_models,
+            custom_variant_count=custom_variant_count,
         )
 
     def _get_from_settings_dialog_or_env(
@@ -323,13 +340,36 @@ class ModelSelectionStage:
         openai_api_key: str | None,
         anthropic_api_key: str | None,
         gemini_api_key: str | None = None,
+        custom_models: List[str] | None = None,
+        custom_variant_count: int | None = None,
     ) -> List[Llm]:
-        """Select appropriate models based on available API keys"""
+        """Select appropriate models based on available API keys or custom selection"""
         try:
+            # Use custom models if provided
+            if custom_models:
+                variant_models = []
+                for model_str in custom_models:
+                    try:
+                        # Convert string to Llm enum
+                        model_enum = Llm(model_str)
+                        variant_models.append(model_enum)
+                    except ValueError:
+                        await self.throw_error(f"Invalid model: {model_str}")
+                        raise ValueError(f"Invalid model: {model_str}")
+                
+                # Print the custom variant models
+                print("Custom variant models:")
+                for index, model in enumerate(variant_models):
+                    print(f"Variant {index + 1}: {model.value}")
+                
+                return variant_models
+            
+            # Fall back to automatic selection
+            variant_count = custom_variant_count or NUM_VARIANTS
             variant_models = self._get_variant_models(
                 generation_type,
                 input_mode,
-                NUM_VARIANTS,
+                variant_count,
                 openai_api_key,
                 anthropic_api_key,
                 gemini_api_key,
@@ -825,10 +865,13 @@ class StatusBroadcastMiddleware(Middleware):
     async def process(
         self, context: PipelineContext, next_func: Callable[[], Awaitable[None]]
     ) -> None:
+        # Use custom variant count if provided, otherwise use default
+        variant_count = context.extracted_params.custom_variant_count or NUM_VARIANTS
+        
         # Tell frontend how many variants we're using
-        await context.send_message("variantCount", str(NUM_VARIANTS), 0)
+        await context.send_message("variantCount", str(variant_count), 0)
 
-        for i in range(NUM_VARIANTS):
+        for i in range(variant_count):
             await context.send_message("status", "Generating code...", i)
 
         await next_func()
@@ -885,6 +928,8 @@ class CodeGenerationMiddleware(Middleware):
                         openai_api_key=context.extracted_params.openai_api_key,
                         anthropic_api_key=context.extracted_params.anthropic_api_key,
                         gemini_api_key=GEMINI_API_KEY,
+                        custom_models=context.extracted_params.custom_models,
+                        custom_variant_count=context.extracted_params.custom_variant_count,
                     )
 
                     # Generate code for all variants

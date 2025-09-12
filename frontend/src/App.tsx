@@ -247,7 +247,12 @@ function App() {
   }
 
   // Initial version creation
-  function doCreate(referenceImages: string[], inputMode: "image" | "video") {
+  function doCreate(
+    referenceImages: string[], 
+    inputMode: "image" | "video",
+    customModels?: string[],
+    customVariantCount?: number
+  ) {
     // Reset any existing state
     reset();
 
@@ -261,6 +266,8 @@ function App() {
         generationType: "create",
         inputMode,
         prompt: { text: "", images: [referenceImages[0]] },
+        customModels,
+        customVariantCount,
       });
     }
   }
