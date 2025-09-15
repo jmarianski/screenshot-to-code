@@ -73,12 +73,18 @@ export default function ModelSelection({
 
   if (loading) {
     return (
-      <div className='text-sm text-slate-600 dark:text-slate-400'>Loading available models...</div>
+      <div className='text-sm text-slate-600 dark:text-slate-400'>
+        Loading available models...
+      </div>
     );
   }
 
   if (error) {
-    return <div className='text-sm text-red-600 dark:text-red-400'>Error: {error}</div>;
+    return (
+      <div className='text-sm text-red-600 dark:text-red-400'>
+        Error: {error}
+      </div>
+    );
   }
 
   if (availableModels.length === 0) {
@@ -94,27 +100,43 @@ export default function ModelSelection({
     <div className='bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-700/50 rounded-xl p-6 shadow-sm'>
       <div className='flex items-center gap-2 mb-6'>
         <div className='w-2 h-2 bg-blue-500 dark:bg-blue-400 rounded-full'></div>
-        <h3 className='text-lg font-semibold text-slate-800 dark:text-slate-200'>AI Model Selection</h3>
+        <h3 className='text-lg font-semibold text-slate-800 dark:text-slate-200'>
+          AI Model Selection
+        </h3>
       </div>
 
       <div className='space-y-5'>
         <p className='text-sm text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-slate-800/60 rounded-lg p-3 border border-slate-200 dark:border-slate-600'>
-          💡 <strong>Tip:</strong> Select specific models to compare their outputs, or leave empty for smart auto-selection
+          💡 <strong>Tip:</strong> Select specific models to compare their
+          outputs, or leave empty for smart auto-selection
         </p>
 
         <div className='grid gap-4'>
           {Object.entries(groupedModels).map(([provider, models]) => (
-            <div key={provider} className='bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-600 shadow-sm'>
+            <div
+              key={provider}
+              className='bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-600 shadow-sm'
+            >
               <div className='flex items-center gap-2 mb-3'>
-                <div className={`w-3 h-3 rounded-full ${
-                  provider === 'openai' ? 'bg-green-500 dark:bg-green-400' :
-                  provider === 'anthropic' ? 'bg-orange-500 dark:bg-orange-400' :
-                  provider === 'gemini' ? 'bg-blue-500 dark:bg-blue-400' : 'bg-slate-500 dark:bg-slate-400'
-                }`}></div>
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    provider === 'openai'
+                      ? 'bg-green-500 dark:bg-green-400'
+                      : provider === 'anthropic'
+                      ? 'bg-orange-500 dark:bg-orange-400'
+                      : provider === 'gemini'
+                      ? 'bg-blue-500 dark:bg-blue-400'
+                      : 'bg-slate-500 dark:bg-slate-400'
+                  }`}
+                ></div>
                 <h4 className='font-semibold text-slate-800 dark:text-slate-200 capitalize text-base'>
-                  {provider === 'openai' ? 'OpenAI' : 
-                   provider === 'anthropic' ? 'Anthropic (Claude)' :
-                   provider === 'gemini' ? 'Google Gemini' : provider}
+                  {provider === 'openai'
+                    ? 'OpenAI'
+                    : provider === 'anthropic'
+                    ? 'Anthropic (Claude)'
+                    : provider === 'gemini'
+                    ? 'Google Gemini'
+                    : provider}
                 </h4>
               </div>
               <div className='grid grid-cols-1 gap-2'>
@@ -143,10 +165,14 @@ export default function ModelSelection({
           <div className='bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700/50 rounded-lg p-4'>
             <div className='flex items-center gap-2'>
               <div className='w-5 h-5 bg-blue-500 dark:bg-blue-400 rounded-full flex items-center justify-center'>
-                <span className='text-white dark:text-slate-900 text-xs font-bold'>{selectedModels.length}</span>
+                <span className='text-white dark:text-slate-900 text-xs font-bold'>
+                  {selectedModels.length}
+                </span>
               </div>
               <span className='text-blue-800 dark:text-blue-200 font-medium'>
-                Will generate {selectedModels.length} variant{selectedModels.length === 1 ? '' : 's'} using your selected models
+                Will generate {selectedModels.length} variant
+                {selectedModels.length === 1 ? '' : 's'} using your selected
+                models
               </span>
             </div>
           </div>

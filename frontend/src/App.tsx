@@ -1,30 +1,36 @@
-import { useEffect, useRef } from "react";
-import { generateCode } from "./generateCode";
-import SettingsDialog from "./components/settings/SettingsDialog";
-import DarkModeToggle from "./components/DarkModeToggle";
-import { AppState, CodeGenerationParams, EditorTheme, Settings, UploadedFile } from "./types";
-import { IS_RUNNING_ON_CLOUD } from "./config";
-import { PicoBadge } from "./components/messages/PicoBadge";
-import { OnboardingNote } from "./components/messages/OnboardingNote";
-import { usePersistedState } from "./hooks/usePersistedState";
-import TermsOfServiceDialog from "./components/TermsOfServiceDialog";
-import { USER_CLOSE_WEB_SOCKET_CODE } from "./constants";
-import { extractHistory } from "./components/history/utils";
-import toast from "react-hot-toast";
-import { Stack } from "./lib/stacks";
-import { CodeGenerationModel } from "./lib/models";
-import useBrowserTabIndicator from "./hooks/useBrowserTabIndicator";
+import { useEffect, useRef } from 'react';
+import { generateCode } from './generateCode';
+import SettingsDialog from './components/settings/SettingsDialog';
+import DarkModeToggle from './components/DarkModeToggle';
+import {
+  AppState,
+  CodeGenerationParams,
+  EditorTheme,
+  Settings,
+  UploadedFile,
+} from './types';
+import { IS_RUNNING_ON_CLOUD } from './config';
+import { PicoBadge } from './components/messages/PicoBadge';
+import { OnboardingNote } from './components/messages/OnboardingNote';
+import { usePersistedState } from './hooks/usePersistedState';
+import TermsOfServiceDialog from './components/TermsOfServiceDialog';
+import { USER_CLOSE_WEB_SOCKET_CODE } from './constants';
+import { extractHistory } from './components/history/utils';
+import toast from 'react-hot-toast';
+import { Stack } from './lib/stacks';
+import { CodeGenerationModel } from './lib/models';
+import useBrowserTabIndicator from './hooks/useBrowserTabIndicator';
 // import TipLink from "./components/messages/TipLink";
-import { useAppStore } from "./store/app-store";
-import { useProjectStore } from "./store/project-store";
-import Sidebar from "./components/sidebar/Sidebar";
-import PreviewPane from "./components/preview/PreviewPane";
-import DeprecationMessage from "./components/messages/DeprecationMessage";
-import { GenerationSettings } from "./components/settings/GenerationSettings";
-import StartPane from "./components/start-pane/StartPane";
-import { Commit } from "./components/commits/types";
-import { createCommit } from "./components/commits/utils";
-import GenerateFromText from "./components/generate-from-text/GenerateFromText";
+import { useAppStore } from './store/app-store';
+import { useProjectStore } from './store/project-store';
+import Sidebar from './components/sidebar/Sidebar';
+import PreviewPane from './components/preview/PreviewPane';
+import DeprecationMessage from './components/messages/DeprecationMessage';
+import { GenerationSettings } from './components/settings/GenerationSettings';
+import StartPane from './components/start-pane/StartPane';
+import { Commit } from './components/commits/types';
+import { createCommit } from './components/commits/utils';
+import GenerateFromText from './components/generate-from-text/GenerateFromText';
 
 function App() {
   const {
@@ -78,7 +84,7 @@ function App() {
       // Only relevant for hosted version
       isTermOfServiceAccepted: false,
     },
-    "setting"
+    'setting',
   );
 
   const wsRef = useRef<WebSocket>(null);
@@ -116,7 +122,7 @@ function App() {
   // Functions
   const reset = () => {
     setAppState(AppState.INITIAL);
-    setUpdateInstruction("");
+    setUpdateInstruction('');
     setUpdateImages([]);
     disableInSelectAndEditMode();
     resetExecutionConsoles();
@@ -125,7 +131,7 @@ function App() {
     resetHead();
 
     // Inputs
-    setInputMode("image");
+    setInputMode('image');
     setReferenceImages([]);
     setIsImportedFromCode(false);
   };
@@ -133,20 +139,20 @@ function App() {
   const regenerate = () => {
     if (head === null) {
       toast.error(
-        "No current version set. Please contact support via chat or Github."
+        'No current version set. Please contact support via chat or Github.',
       );
-      throw new Error("Regenerate called with no head");
+      throw new Error('Regenerate called with no head');
     }
 
     // Retrieve the previous command
     const currentCommit = commits[head];
-    if (currentCommit.type !== "ai_create") {
-      toast.error("Only the first version can be regenerated.");
+    if (currentCommit.type !== 'ai_create') {
+      toast.error('Only the first version can be regenerated.');
       return;
     }
 
     // Re-run the create
-    if (inputMode === "image" || inputMode === "video") {
+    if (inputMode === 'image' || inputMode === 'video') {
       doCreate(referenceImages, inputMode);
     } else {
       // TODO: Fix this
@@ -162,7 +168,7 @@ function App() {
   // Used for code generation failure as well
   const cancelCodeGenerationAndReset = (commit: Commit) => {
     // When the current commit is the first version, reset the entire app state
-    if (commit.type === "ai_create") {
+    if (commit.type === 'ai_create') {
       reset();
     } else {
       // Otherwise, remove current commit from commits
@@ -173,7 +179,7 @@ function App() {
       if (parentCommitHash) {
         setHead(parentCommitHash);
       } else {
-        throw new Error("Parent commit not found");
+        throw new Error('Parent commit not found');
       }
 
       setAppState(AppState.CODE_READY);
@@ -193,24 +199,26 @@ function App() {
     // Create variants dynamically - start with 4 to handle most cases
     // Backend will use however many it needs (typically 3)
     const baseCommitObject = {
-      variants: Array(4).fill(null).map(() => ({ code: "" })),
+      variants: Array(4)
+        .fill(null)
+        .map(() => ({ code: '' })),
     };
 
     const commitInputObject =
-      params.generationType === "create"
+      params.generationType === 'create'
         ? {
             ...baseCommitObject,
-            type: "ai_create" as const,
+            type: 'ai_create' as const,
             parentHash: null,
             inputs: params.prompt,
           }
         : {
             ...baseCommitObject,
-            type: "ai_edit" as const,
+            type: 'ai_edit' as const,
             parentHash: head,
             inputs: params.history
               ? params.history[params.history.length - 1]
-              : { text: "", images: [] },
+              : { text: '', images: [] },
           };
 
     // Create a new commit and set it as the head
@@ -225,14 +233,15 @@ function App() {
       onSetCode: (code, variantIndex) => {
         setCommitCode(commit.hash, variantIndex, code);
       },
-      onStatusUpdate: (line, variantIndex) => appendExecutionConsole(variantIndex, line),
+      onStatusUpdate: (line, variantIndex) =>
+        appendExecutionConsole(variantIndex, line),
       onVariantComplete: (variantIndex) => {
         console.log(`Variant ${variantIndex} complete event received`);
-        updateVariantStatus(commit.hash, variantIndex, "complete");
+        updateVariantStatus(commit.hash, variantIndex, 'complete');
       },
       onVariantError: (variantIndex, error) => {
         console.error(`Error in variant ${variantIndex}:`, error);
-        updateVariantStatus(commit.hash, variantIndex, "error", error);
+        updateVariantStatus(commit.hash, variantIndex, 'error', error);
       },
       onVariantCount: (count) => {
         console.log(`Backend is using ${count} variants`);
@@ -249,10 +258,10 @@ function App() {
 
   // Initial version creation
   function doCreate(
-    referenceImages: string[] | UploadedFile[], 
-    inputMode: "image" | "video",
+    referenceImages: string[] | UploadedFile[],
+    inputMode: 'image' | 'video',
     customModels?: string[],
-    customVariantCount?: number
+    customVariantCount?: number,
   ) {
     // Reset any existing state
     reset();
@@ -266,9 +275,9 @@ function App() {
 
       if (legacyImages.length > 0) {
         doGenerateCode({
-          generationType: "create",
+          generationType: 'create',
           inputMode,
-          prompt: { text: "", images: [legacyImages[0]] },
+          prompt: { text: '', images: [legacyImages[0]] },
           customModels,
           customVariantCount,
         });
@@ -276,18 +285,21 @@ function App() {
     } else {
       // New format - UploadedFile[]
       const uploadedFiles = referenceImages as UploadedFile[];
-      const legacyImages = uploadedFiles.map(f => f.dataUrl);
+      const legacyImages = uploadedFiles.map((f) => f.dataUrl);
       setReferenceImages(legacyImages);
       setInputMode(inputMode);
 
       if (uploadedFiles.length > 0) {
         doGenerateCode({
-          generationType: "create",
+          generationType: 'create',
           inputMode,
-          prompt: { 
-            text: "", 
-            images: [uploadedFiles.find(f => f.type === 'screenshot')?.dataUrl || uploadedFiles[0].dataUrl],
-            uploadedFiles: uploadedFiles
+          prompt: {
+            text: '',
+            images: [
+              uploadedFiles.find((f) => f.type === 'screenshot')?.dataUrl ||
+                uploadedFiles[0].dataUrl,
+            ],
+            uploadedFiles: uploadedFiles,
           },
           customModels,
           customVariantCount,
@@ -300,11 +312,11 @@ function App() {
     // Reset any existing state
     reset();
 
-    setInputMode("text");
+    setInputMode('text');
     setInitialPrompt(text);
     doGenerateCode({
-      generationType: "create",
-      inputMode: "text",
+      generationType: 'create',
+      inputMode: 'text',
       prompt: { text, images: [] },
     });
   }
@@ -312,18 +324,18 @@ function App() {
   // Subsequent updates
   async function doUpdate(
     updateInstruction: string,
-    selectedElement?: HTMLElement
+    selectedElement?: HTMLElement,
   ) {
-    if (updateInstruction.trim() === "") {
-      toast.error("Please include some instructions for AI on what to update.");
+    if (updateInstruction.trim() === '') {
+      toast.error('Please include some instructions for AI on what to update.');
       return;
     }
 
     if (head === null) {
       toast.error(
-        "No current version set. Contact support or open a Github issue."
+        'No current version set. Contact support or open a Github issue.',
       );
-      throw new Error("Update called with no head");
+      throw new Error('Update called with no head');
     }
 
     let historyTree;
@@ -331,9 +343,9 @@ function App() {
       historyTree = extractHistory(head, commits);
     } catch {
       toast.error(
-        "Version history is invalid. This shouldn't happen. Please contact support or open a Github issue."
+        "Version history is invalid. This shouldn't happen. Please contact support or open a Github issue.",
       );
-      throw new Error("Invalid version history");
+      throw new Error('Invalid version history');
     }
 
     let modifiedUpdateInstruction = updateInstruction;
@@ -342,7 +354,7 @@ function App() {
     if (selectedElement) {
       modifiedUpdateInstruction =
         updateInstruction +
-        " referring to this element specifically: " +
+        ' referring to this element specifically: ' +
         selectedElement.outerHTML;
     }
 
@@ -352,17 +364,17 @@ function App() {
     ];
 
     doGenerateCode({
-      generationType: "update",
+      generationType: 'update',
       inputMode,
       prompt:
-        inputMode === "text"
+        inputMode === 'text'
           ? { text: initialPrompt, images: [] }
-          : { text: "", images: [referenceImages[0]] },
+          : { text: '', images: [referenceImages[0]] },
       history: updatedHistory,
       isImportedFromCode,
     });
 
-    setUpdateInstruction("");
+    setUpdateInstruction('');
     setUpdateImages([]);
   }
 
@@ -392,7 +404,7 @@ function App() {
 
     // Create a new commit and set it as the head
     const commit = createCommit({
-      type: "code_create",
+      type: 'code_create',
       parentHash: null,
       variants: [{ code }],
       inputs: null,
@@ -405,7 +417,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-300">
+    <div className='min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 transition-colors duration-300'>
       {IS_RUNNING_ON_CLOUD && <PicoBadge />}
       {IS_RUNNING_ON_CLOUD && (
         <TermsOfServiceDialog
@@ -413,59 +425,72 @@ function App() {
           onOpenChange={handleTermDialogOpenChange}
         />
       )}
-      
+
       {/* Modern Sidebar */}
-      <div className="lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-[380px] lg:flex-col">
-        <div className="flex grow flex-col gap-y-4 overflow-y-auto bg-white/80 backdrop-blur-xl border-r border-slate-200/60 px-6 py-8 dark:bg-slate-900/80 dark:border-slate-700/60 shadow-xl">
+      <div className='lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-[380px] lg:flex-col'>
+        <div className='flex grow flex-col gap-y-4 overflow-y-auto bg-white/80 backdrop-blur-xl border-r border-slate-200/60 px-6 py-8 dark:bg-slate-900/80 dark:border-slate-700/60 shadow-xl'>
           {/* Enhanced Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          <div className='flex items-center justify-between mb-8'>
+            <div className='flex items-center space-x-3'>
+              <div className='w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg'>
+                <svg
+                  className='w-6 h-6 text-white'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    strokeWidth={2}
+                    d='M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4'
+                  />
                 </svg>
               </div>
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300">
+                <h1 className='text-xl font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent dark:from-slate-100 dark:to-slate-300'>
                   Screenshot to Code
                 </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400">AI-Powered Code Generation</p>
+                <p className='text-xs text-slate-500 dark:text-slate-400'>
+                  AI-Powered Code Generation
+                </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className='flex items-center gap-2'>
               <DarkModeToggle />
               <SettingsDialog settings={settings} setSettings={setSettings} />
             </div>
           </div>
 
           {/* Generation Settings Card */}
-          <div className="bg-slate-50/50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200/60 dark:border-slate-700/60">
+          <div className='bg-slate-50/50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200/60 dark:border-slate-700/60'>
             <GenerationSettings settings={settings} setSettings={setSettings} />
           </div>
 
           {/* Notifications */}
           {showBetterModelMessage && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl p-4">
+            <div className='bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded-xl p-4'>
               <DeprecationMessage />
             </div>
           )}
 
           {IS_RUNNING_ON_CLOUD && !settings.openAiApiKey && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-4">
+            <div className='bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700/50 rounded-xl p-4'>
               <OnboardingNote />
             </div>
           )}
 
           {/* Dynamic Content */}
-          <div className="flex-1 space-y-4">
+          <div className='flex-1 space-y-4'>
             {appState === AppState.INITIAL && (
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-700/30">
+              <div className='bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 rounded-xl p-4 border border-purple-200/50 dark:border-purple-700/30'>
                 <GenerateFromText doCreateFromText={doCreateFromText} />
               </div>
             )}
 
-            {(appState === AppState.CODING || appState === AppState.CODE_READY) && (
-              <div className="space-y-4">
+            {(appState === AppState.CODING ||
+              appState === AppState.CODE_READY) && (
+              <div className='space-y-4'>
                 <Sidebar
                   showSelectAndEditFeature={showSelectAndEditFeature}
                   doUpdate={doUpdate}
@@ -479,7 +504,7 @@ function App() {
       </div>
 
       {/* Main Content Area */}
-      <main className="lg:pl-[380px] min-h-screen">
+      <main className='lg:pl-[380px] min-h-screen'>
         {appState === AppState.INITIAL && (
           <StartPane
             doCreate={doCreate}
@@ -489,8 +514,12 @@ function App() {
         )}
 
         {(appState === AppState.CODING || appState === AppState.CODE_READY) && (
-          <div className="p-4">
-            <PreviewPane doUpdate={doUpdate} reset={reset} settings={settings} />
+          <div className='p-4'>
+            <PreviewPane
+              doUpdate={doUpdate}
+              reset={reset}
+              settings={settings}
+            />
           </div>
         )}
       </main>
